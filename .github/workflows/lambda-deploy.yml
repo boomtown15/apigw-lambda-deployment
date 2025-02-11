@@ -1,0 +1,131 @@
+name: Lambda Deployment with Traffic Shifting
+
+on:
+  push:
+    paths:
+      - 'lambda/**'
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: us-east-1
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        
+    - name: Install dependencies
+      run: npm ci
+        
+    - name: Deploy with CDK
+      run: npx cdk deploy
+
+    - name: Update Lambda function
+      id: update_lambda
+      run: |
+        # Get the function name from the CDK output or environment
+        FUNCTION_NAME="LambdaCanaryStack-LambdaFunction"
+        
+        # Update the function code
+        VERSION=$(aws lambda update-function-code \
+          --function-name $FUNCTION_NAME \
+          --zip-file fileb://lambda/index.js \
+          --publish \
+          --query 'Version' \
+          --output text)
+          
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Create or update alias with traffic shifting
+      run: |
+        FUNCTION_NAME="LambdaCanaryStack-LambdaFunction"
+        NEW_VERSION=${{ steps.update_lambda.outputs.version }}
+        
+        # Get current version
+        CURRENT_VERSION=$(aws lambda get-alias \
+          --function-name $FUNCTION_NAME \
+          --name production \
+          --query 'FunctionVersion' \
+          --output text || echo "1")
+        
+        # Initial routing config with 10% to new version
+        aws lambda create-alias \
+          --function-name $FUNCTION_NAME \
+          --name production \
+          --function-version $NEW_VERSION \
+          --routing-config AdditionalVersionWeights={"$CURRENT_VERSION"=0.9} || \
+        aws lambda update-alias \
+          --function-name $FUNCTION_NAME \
+          --name production \
+          --function-version $NEW_VERSION \
+          --routing-config AdditionalVersionWeights={"$CURRENT_VERSION"=0.9}
+          
+    - name: Gradual traffic shift
+      run: |
+        FUNCTION_NAME="LambdaCanaryStack-LambdaFunction"
+        NEW_VERSION=${{ steps.update_lambda.outputs.version }}
+        CURRENT_VERSION=$(aws lambda get-alias \
+          --function-name $FUNCTION_NAME \
+          --name production \
+          --query 'FunctionVersion' \
+          --output text)
+          
+        # Monitor errors during deployment
+        for i in {1..10}; do
+          # Get error metrics for new version
+          ERROR_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/Lambda \
+            --metric-name Errors \
+            --dimensions Name=FunctionName,Value=$FUNCTION_NAME Name=ExecutedVersion,Value=$NEW_VERSION \
+            --start-time $(date -u -v-5M "+%Y-%m-%dT%H:%M:%SZ") \
+            --end-time $(date -u "+%Y-%m-%dT%H:%M:%SZ") \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints[0].Sum' \
+            --output text)
+            
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "Errors detected in new version. Rolling back..."
+            aws lambda update-alias \
+              --function-name $FUNCTION_NAME \
+              --name production \
+              --function-version $CURRENT_VERSION
+            exit 1
+          fi
+          
+          # Calculate new weights
+          NEW_WEIGHT=$(echo "scale=2; $i/10" | bc)
+          OLD_WEIGHT=$(echo "scale=2; 1-$NEW_WEIGHT" | bc)
+          
+          # Update routing weights
+          aws lambda update-alias \
+            --function-name $FUNCTION_NAME \
+            --name production \
+            --function-version $NEW_VERSION \
+            --routing-config AdditionalVersionWeights={"$CURRENT_VERSION"=$OLD_WEIGHT}
+            
+          echo "Traffic shift progress: ${NEW_WEIGHT}% to new version"
+          sleep 60
+        done
+        
+        # Final update to route 100% to new version
+        aws lambda update-alias \
+          --function-name $FUNCTION_NAME \
+          --name production \
+          --function-version $NEW_VERSION
