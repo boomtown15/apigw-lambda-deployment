@@ -1,6 +1,7 @@
 name: Lambda Deployment with Traffic Shifting
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'lambda/**'
