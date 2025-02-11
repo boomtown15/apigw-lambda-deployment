@@ -18,7 +18,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: '14'
+        node-version: '22'
     
     - name: Install dependencies
       run: npm install
@@ -29,7 +29,7 @@ jobs:
     - name: CDK deploy if unit tests pass
       run: |
         if [ $? -eq 0 ]; then
-          npx cdk deploy --require-approval never
+          cdk deploy --require-approval never
         else
           echo "Unit tests failed. Skipping CDK deployment."
         fi
