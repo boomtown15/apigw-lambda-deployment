@@ -26,10 +26,11 @@ jobs:
     - name: Run unit tests
       run: npm test
 
-    - name: Deploy Changes if tests pass
+    - name: CDK deploy if unit tests pass
       run: |
-        npm run deploy
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: us-west-2
+        if [ $? -eq 0 ]; then
+          npx cdk deploy --require-approval never
+        else
+          echo "Unit tests failed. Skipping CDK deployment."
+        fi
+     
