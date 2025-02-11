@@ -6,13 +6,16 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import {Stack} from "aws-cdk-lib";
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as codedeploy from 'aws-cdk-lib/aws-codedeploy';
+
 
 
 export class LambdaCanaryStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // Create basic Lambda function
+    /** Create basic Lambda function **/
     const lambdaFn = new lambda.Function(this, 'CanaryFunction', {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
@@ -26,12 +29,55 @@ export class LambdaCanaryStack extends cdk.Stack {
       aliasName: 'dev',
       version,
     });
+
+    // Configure traffic shifting for prod alias
     const prodAlias = new lambda.Alias(this, 'ProdAlias', {
       aliasName: 'prod',
       version,
     });
 
-    // Create REST API
+    // Create CloudWatch alarm for monitoring errors during deployment
+    const errorMetric = new cdk.aws_cloudwatch.Metric({
+      namespace: 'AWS/Lambda',
+      metricName: 'Errors',
+      dimensionsMap: {
+        FunctionName: lambdaFn.functionName,
+        Resource: `${lambdaFn.functionName}:dev`
+      },
+      period: cdk.Duration.minutes(1),
+      statistic: 'Sum',
+    });
+
+    const errorAlarm = new cdk.aws_cloudwatch.Alarm(this, 'DeploymentErrorAlarm', {
+      metric: errorMetric,
+      threshold: 1,
+      evaluationPeriods: 1,
+      alarmDescription: 'Monitors for errors during deployment on dev alias',
+      comparisonOperator: cdk.aws_cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+    });
+
+    const config = new codedeploy.LambdaDeploymentConfig(this, 'CustomConfig', {
+      trafficRouting: new codedeploy.TimeBasedCanaryTrafficRouting({
+        interval: cdk.Duration.minutes(1),
+        percentage: 25,
+      }),
+      deploymentConfigName: 'Canary25Percent1Minutes',
+    });
+
+    // create Lambda Deployment Group
+    const deploymentGroup = new codedeploy.LambdaDeploymentGroup(this, 'CanaryDeployment', {
+      application: new codedeploy.LambdaApplication(this, 'canaryDeploymentHellowWorld'),
+      alias: devAlias,
+      deploymentConfig: config,
+      alarms: [errorAlarm],
+    });
+
+    // const prodAlias = new lambda.Alias(this, 'ProdAlias', {
+    //   aliasName: 'prod',
+    //   version,
+    // });
+
+    /** Create REST API **/
     const api = new apigateway.RestApi(this, 'CanaryApi', {
       restApiName: 'Canary API',
       endpointTypes: [apigateway.EndpointType.REGIONAL],
@@ -76,8 +122,7 @@ export class LambdaCanaryStack extends cdk.Stack {
     });
 
 
-
-// Since the prod stage is created by default, you need to go in after and update it.
+/**  Since the prod stage is created by default, you need to go in after and update it. **/
     const updateStageVariables = new cr.AwsCustomResource(this, 'UpdateStageVariables', {
       onCreate: {
         service: 'APIGateway',
@@ -120,9 +165,12 @@ export class LambdaCanaryStack extends cdk.Stack {
       ])
     });
 
-// Make sure this runs after the stage is created
+    // Make sure this runs after the stage is created
     updateStageVariables.node.addDependency(deployment);
 
+
+
+  /**  Permissions **/
 
     // Add permission for API Gateway to invoke the Lambda function
     lambdaFn.addPermission('ApiGatewayInvoke', {
@@ -153,6 +201,30 @@ export class LambdaCanaryStack extends cdk.Stack {
     });
 
 
+    /**  Outputs **/
+    new cdk.CfnOutput(this, 'LambdaFunctionName', {
+      value: lambdaFn.functionName,
+      description: 'The name of the Lambda function',
+      exportName: 'CanaryLambdaFunctionName',
+    });
+
+    new cdk.CfnOutput(this, 'LambdaFunctionArn', {
+      value: lambdaFn.functionArn,
+      description: 'The ARN of the Lambda function',
+      exportName: 'CanaryLambdaFunctionArn',
+    });
+
+    new cdk.CfnOutput(this, 'DevAliasName', {
+      value: devAlias.aliasName,
+      description: 'The name of the dev alias',
+      exportName: 'CanaryDevAliasName',
+    });
+
+    new cdk.CfnOutput(this, 'ProdAliasName', {
+      value: prodAlias.aliasName,
+      description: 'The name of the prod alias',
+      exportName: 'CanaryProdAliasName',
+    });
 
   }
 }
