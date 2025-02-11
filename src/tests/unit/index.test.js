@@ -1,5 +1,5 @@
 // import getBody from index.js
-const { getBody } = require('../../lambda/index.js');
+const { getBody } = require('../../../lambda/index.js');
 
 describe('getBody', () => {
     test('should return object with correct status code', () => {

@@ -1,14 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
-import * as cr from 'aws-cdk-lib/custom-resources';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import {Stack} from "aws-cdk-lib";
+import {RemovalPolicy, Stack} from "aws-cdk-lib";
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as codedeploy from 'aws-cdk-lib/aws-codedeploy';
-
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 
 export class LambdaCanaryStack extends cdk.Stack {
@@ -21,19 +19,18 @@ export class LambdaCanaryStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset('lambda'),
       description: 'Canary Lambda Function',
+      currentVersionOptions: {
+        removalPolicy: RemovalPolicy.RETAIN,
+        retryAttempts: 1
+      }
     });
 
-    // Create version and aliases
+    // Publish a new version
     const version = lambdaFn.currentVersion;
+
     const devAlias = new lambda.Alias(this, 'DevAlias', {
       aliasName: 'dev',
-      version,
-    });
-
-    // Configure traffic shifting for prod alias
-    const prodAlias = new lambda.Alias(this, 'ProdAlias', {
-      aliasName: 'prod',
-      version,
+      version: version,
     });
 
     // Create CloudWatch alarm for monitoring errors during deployment
@@ -71,11 +68,6 @@ export class LambdaCanaryStack extends cdk.Stack {
       deploymentConfig: config,
       alarms: [errorAlarm],
     });
-
-    // const prodAlias = new lambda.Alias(this, 'ProdAlias', {
-    //   aliasName: 'prod',
-    //   version,
-    // });
 
     /** Create REST API **/
     const api = new apigateway.RestApi(this, 'CanaryApi', {
@@ -121,55 +113,6 @@ export class LambdaCanaryStack extends cdk.Stack {
       }
     });
 
-
-/**  Since the prod stage is created by default, you need to go in after and update it. **/
-    const updateStageVariables = new cr.AwsCustomResource(this, 'UpdateStageVariables', {
-      onCreate: {
-        service: 'APIGateway',
-        action: 'updateStage',
-        parameters: {
-          restApiId: api.restApiId,
-          stageName: 'prod',
-          patchOperations: [
-            {
-              op: 'replace',
-              path: '/variables/lambdaAlias',
-              value: 'prod'
-            }
-          ]
-        },
-        physicalResourceId: cr.PhysicalResourceId.of('StageVariableUpdate')
-      },
-      onUpdate: {
-        service: 'APIGateway',
-        action: 'updateStage',
-        parameters: {
-          restApiId: api.restApiId,
-          stageName: 'prod',
-          patchOperations: [
-            {
-              op: 'replace',
-              path: '/variables/lambdaAlias',
-              value: 'prod'
-            }
-          ]
-        },
-        physicalResourceId: cr.PhysicalResourceId.of('StageVariableUpdate')
-      },
-      policy: cr.AwsCustomResourcePolicy.fromStatements([
-        new iam.PolicyStatement({
-          actions: ['apigateway:PATCH', 'apigateway:UpdateStage'],
-          resources: [`arn:aws:apigateway:${Stack.of(this).region}::/restapis/${api.restApiId}/stages/*`],
-          effect: iam.Effect.ALLOW
-        })
-      ])
-    });
-
-    // Make sure this runs after the stage is created
-    updateStageVariables.node.addDependency(deployment);
-
-
-
   /**  Permissions **/
 
     // Add permission for API Gateway to invoke the Lambda function
@@ -179,51 +122,51 @@ export class LambdaCanaryStack extends cdk.Stack {
       sourceArn: `arn:aws:execute-api:${Stack.of(this).region}:${Stack.of(this).account}:${api.restApiId}/*/*`,
     });
 
-    // add permission for API Gateway to invoke prod lambda alias
-    prodAlias.addPermission('ApiGatewayInvokeProd', {
-      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
-      action: 'lambda:InvokeFunction',
-      sourceArn: `arn:aws:execute-api:${Stack.of(this).region}:${Stack.of(this).account}:${api.restApiId}/*/GET/`,
-    });
-
     // add permissions for API Gateway to invoke dev alias
-    devAlias.addPermission('ApiGatewayInvokeProd', {
-
+    devAlias.addPermission('ApiGatewayInvokeDev', {
       principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
       action: 'lambda:InvokeFunction',
       sourceArn: `arn:aws:execute-api:${Stack.of(this).region}:${Stack.of(this).account}:${api.restApiId}/*/GET/`,
     });
 
-    // Export the function name for use in the GitHub Actions workflow
-    new cdk.CfnOutput(this, 'FunctionName', {
-      value: lambdaFn.functionName,
-      description: 'Lambda function name',
+    /** storing output necessary for other stacks in SSM to decouple stacks **/
+    // Store values in SSM Parameter Store instead of CloudFormation exports
+    new ssm.StringParameter(this, 'LambdaFunctionArn', {
+      parameterName: '/canary/dev/lambda-function-arn',
+      stringValue: lambdaFn.functionArn,
+    });
+
+    new ssm.StringParameter(this, 'LambdaFunctionName', {
+      parameterName: '/canary/dev/lambda-function-name',
+      stringValue: lambdaFn.functionName,
+    });
+
+    new ssm.StringParameter(this, 'LambdaVersionArn', {
+      parameterName: '/canary/dev/lambda-version-arn',
+      stringValue: version.functionArn,
+    });
+
+    new ssm.StringParameter(this, 'ApiGatewayId', {
+      parameterName: '/canary/dev/api-gateway-id',
+      stringValue: api.restApiId,
+    });
+
+    new ssm.StringParameter(this, 'ApiGatewayRootResourceId', {
+      parameterName: '/canary/dev/api-gateway-root-resource-id',
+      stringValue: api.root.resourceId,
+    });
+
+    // store the api url in SSM
+    new ssm.StringParameter(this, 'ApiGatewayUrl', {
+      parameterName: '/canary/dev/api-gateway-url',
+      stringValue: api.url,
     });
 
 
-    /**  Outputs **/
-    new cdk.CfnOutput(this, 'LambdaFunctionName', {
-      value: lambdaFn.functionName,
-      description: 'The name of the Lambda function',
-      exportName: 'CanaryLambdaFunctionName',
-    });
 
-    new cdk.CfnOutput(this, 'LambdaFunctionArn', {
-      value: lambdaFn.functionArn,
-      description: 'The ARN of the Lambda function',
-      exportName: 'CanaryLambdaFunctionArn',
-    });
-
-    new cdk.CfnOutput(this, 'DevAliasName', {
-      value: devAlias.aliasName,
-      description: 'The name of the dev alias',
-      exportName: 'CanaryDevAliasName',
-    });
-
-    new cdk.CfnOutput(this, 'ProdAliasName', {
-      value: prodAlias.aliasName,
-      description: 'The name of the prod alias',
-      exportName: 'CanaryProdAliasName',
+    // export API Gateway endpoint URL
+    new cdk.CfnOutput(this, 'ApiGatewayEndpoint', {
+      value: api.url,
     });
 
   }
