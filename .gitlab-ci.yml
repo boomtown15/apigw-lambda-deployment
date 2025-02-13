@@ -1,0 +1,116 @@
+# GitLab CI/CD Pipeline Configuration
+# Converted from GitHub Actions workflow
+
+# Define stages
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  AWS_DEFAULT_REGION: us-east-1  # Update this as needed
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+# Default image for all jobs
+image: node:22  # Required by package.json >= 22.0.0
+
+.node-setup: &node-setup |
+  # Install nvm and use correct Node.js version
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  nvm install 22
+  nvm use 22
+  node --version
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .npm/
+    - ~/.nvm/
+
+# Install dependencies
+before_script:
+  - *node-setup
+  - npm install -g aws-cdk typescript ts-node
+  - npm ci --audit=false --no-engine-strict  # Skip audit and engine check for setup
+
+# Test stage
+test:
+  stage: test
+  script:
+    - npm run test:unit
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: junit.xml
+    when: always
+
+# Build stage
+build:
+  stage: build
+  script:
+    - npm ci --audit=false
+    # Compile TypeScript
+    - tsc
+    # Build CDK app
+    - npx cdk synth
+  artifacts:
+    paths:
+      - cdk.out/
+      - node_modules/
+      - dist/
+    expire_in: 1 week
+
+# Deploy stage
+deploy:
+  stage: deploy
+  script:
+    # Ensure AWS credentials are available
+    - if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+    -   echo "AWS credentials not found"
+    -   exit 1
+    - fi
+    - npx cdk deploy --require-approval never || {
+        echo "Deployment failed. Check CloudFormation console for details.";
+        exit 1;
+      }
+  only:
+    - main  # Only run on main branch
+  environment: production
+  needs:
+    - test
+    - build
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual  # Requires manual approval for production deployment
+    - when: never
+
+# AWS Configuration
+# Note: You'll need to configure the following CI/CD variables in GitLab:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# These should be set as masked and protected variables in GitLab CI/CD settings
+
+# Documentation:
+# 1. In GitLab, go to Settings > CI/CD > Variables
+# 2. Add the following variables:
+#    - AWS_ACCESS_KEY_ID (masked and protected)
+#    - AWS_SECRET_ACCESS_KEY (masked and protected)
+# 3. Make sure the AWS IAM user has the necessary permissions as defined in cd-aws-policy.json
+# 4. Update AWS_DEFAULT_REGION if needed
+#
+# The pipeline will:
+# 1. Run unit and integration tests
+# 2. Build TypeScript code and CDK application
+# 3. Deploy to AWS using CDK
+#
+# Required AWS permissions are defined in cd-aws-policy.json and include:
+# - CloudFormation
+# - S3
+# - IAM
+# - Lambda
+# - API Gateway
+# - CloudWatch
+# - Logs
