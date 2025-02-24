@@ -12,9 +12,12 @@ See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/config
 ## Project Structure
 
 - `bin/` - Contains the CDK app entry point
-- `lib/` - Contains the CDK stack definition
+- `lib/` - Contains separate CDK stacks for development and production
 - `lambda/` - Contains the Lambda function code
 - `test/` - Contains test files
+- `.github/workflows` - Contains the GitHub Actions workflow
+- `.gitlab-ci.yml` - GitLab pipeline
+- `cd-aws-policy.json` - IAM policy for CD permissions
 
 ## Prerequisites
 
@@ -29,7 +32,6 @@ See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/config
 > [Stand-alone CDK](#deployment-stand-alone-cdk) for testing the deployment procedures manually   
 > [Github Actions Workflow](#deployment-for-github-actions) for testing via a GitHub actions pipeline
 > [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline 
-
 
 ## Understanding the Deployment Strategy
 
@@ -159,6 +161,14 @@ The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
       - AWS_DEFAULT_REGION: ex: us-east-1, us-west2, etc. 
 3. [Setup a pipeline](https://docs.gitlab.com/ci/quick_start/) using the .gitlab-ci.yml file
 4. Modify the Lambda function under lambda directory (i.e. alert return message), commit changes and push to the repository.  Start the pipeline manually or setup your own [trigger](https://docs.gitlab.com/ci/quick_start/).  
+
+## Cleanup (All Methods)
+
+1. Delete any pipeline configuration created, including secrets and variables
+2. Delete the AWS dev and prod stacks.  From
+```
+cdk destroy
+```
 
 ## Best Practices
 

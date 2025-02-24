@@ -1,4 +1,4 @@
-# GitHub AWS Service Account Policy
+# CI CD AWS Service Account Policy
 
 This [policy document](cd-aws-policy.json) provides the necessary AWS IAM permissions for the GitHub Actions workflows to deploy and manage AWS resources. The policy follows the principle of least privilege and scopes resources to the "LambdaCanary" prefix.
 
@@ -29,7 +29,7 @@ Create IAM user:
 aws iam create-user --user-name cicd-user
 ```
 
-Create access keys for the user and save the output: 
+Create access keys for the user and save the access key id and secrete access key output for a later step: 
 ```
 aws iam create-access-key --user-name cicd-user
 ```
@@ -53,7 +53,7 @@ aws iam attach-user-policy \
     --policy-arn arn:aws:iam::ACCOUNT_ID:policy/cicd-policy
 ```
 
-### 4. Setup CI/CD Secrets
+### 4. Setup CI CD Secrets if using GitHub or GitLab
 
 #### GitHub Actions
 1. Go to your GitHub repository
@@ -63,7 +63,7 @@ aws iam attach-user-policy \
     - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
     - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
 
-#### GitLab CI/CD
+#### GitLab CI CD
 1. Go to your GitLab project
 2. Navigate to Settings > CI/CD > Variables
 3. Add the following variables (mark them as Protected and Masked):
