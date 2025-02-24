@@ -1,89 +1,45 @@
 # Lambda Canary Deployment with AWS CDK
 
+> [!IMPORTANT]  
+> This solution is intended for sandbox/development and non-production environments
+
 This repository demonstrates how to implement canary deployments for AWS Lambda functions using AWS CDK. The deployment strategy uses Lambda function aliases and AWS CodeDeploy to gradually shift traffic from the current version to the new version.
+
+This solution is not a guide or tutorial for GitHub Actions or GitLab.  It is assumed if using those methods, you have fundamental knowledge, access and permissions to those platforms.
+
+See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/configuring-alias-routing.html) for more details on weighted alias and traffic shifting. 
+
+## Project Structure
+
+- `bin/` - Contains the CDK app entry point
+- `lib/` - Contains the CDK stack definition
+- `lambda/` - Contains the Lambda function code
+- `test/` - Contains test files
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/en/download) 20.x or later
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) installed and configured with appropriate credentials
 - [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html) installed
-- For Github or GitLab based solutions, you'll need accounts for either platform
-- Setup an AWS user or role with appropriate permissions.  See [policy README](README.policy.md) for details.   
+- For Github or GitLab based solutions, you'll need accounts for the selected platform
+- An AWS user or role for the CI/CD pipeline with appropriate permissions.  See [policy README](README.policy.md) for details.   
 
-> ℹ️ **Info**  
-> You have 3 Options Available: [Stand-alone CDK](#deployment-stand-alone-cdk) [Github Actions Workflow](README.GitHub.md) [GitLab Pipeline](README.Gitlab.md)
+> [!NOTE]  
+> There are 3 deployment options available: 
+> [Stand-alone CDK](#deployment-stand-alone-cdk) for testing the deployment procedures manually   
+> [Github Actions Workflow](#deployment-for-github-actions) for testing via a GitHub actions pipeline
+> [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline 
 
-## Deployment Stand-Alone CDK
 
-### Fork and Setup
-This solution uses a Github Actions workflow, which requires permissions to write to and create secrets in the destination repository.  Forking this repository into your own private repository will allow you to have control over those actions.
-
-1. Fork this repository
-   - Visit the repository on GitHub
-   - Click the "Fork" button in the top right
-   - Select your GitHub account as the destination
-
-2. Clone your forked repository
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/lambda-canary.git
-   cd lambda-canary
-   ```
-
-3. Configure AWS Credentials in GitHub
-   - Go to your GitHub repository settings
-   - Navigate to "Secrets and variables" > "Actions"
-   - Add the following secrets:
-     - `AWS_ACCESS_KEY_ID`: Your AWS access key
-     - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
-     - `AWS_REGION`: Your preferred AWS region (e.g., us-east-1)
-
-## Additional Resources
-
-For detailed documentation on the technologies used in this project, visit:
-- [AWS CDK TypeScript Reference](https://docs.aws.amazon.com/cdk/api/v2/)
-- [AWS Lambda Canary Deployments](https://docs.aws.amazon.com/lambda/latest/dg/configuring-alias-routing.html)
-- [AWS CodeDeploy User Guide](https://docs.aws.amazon.com/codedeploy/latest/userguide/)
-
-## Deployment Process
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Bootstrap your AWS environment for CDK (if not already done):
-```bash
-npx cdk bootstrap
-```
-
-3. Review the Lambda function code in `lambda/index.js`
-4. Run unit tests
-```bash
-npm run test:unit
- ```
-
-5. Deploy the initial version:
-```bash
-cdk deploy cdk deploy LambdaCanaryStack-Dev
-```
-
-6. Run integration tests
-```bash
-npm run test:integration
-```
-
-7. Deploy the new version:
-```bash
-cdk deploy LambdaCanaryStack-Prod
- ```
-   
 ## Understanding the Deployment Strategy
 
-The deployment uses AWS CodeDeploy's LINEAR_10PERCENT_EVERY_1MINUTE configuration, which:
-- Starts by routing 10% of traffic to the new version
-- Increases traffic by 10% every minute
-- Takes approximately 10 minutes to complete the shift
-- Automatically rolls back if errors exceed specified thresholds
+The deployment uses AWS CodeDeploy's Canary deployment configuration, which:
+- Starts by routing 25% of traffic to the new version for Dev alias, waiting 1 minute to shift additional traffic
+- Starts by routing 10% of traffic to the new version for Prod alias, waiting 3 minutes to shift additional traffic
+- Both deployments have CloudWatch alerts to rollback the deployment if any errors are encountered with the new version during the wait period
+
+> [!NOTE]
+View [Lambda deployments configurations](https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations.html#deployment-configuration-lambda) for additional deployment options (Canary, Linear, All-At-Once). 
 
 ### Monitoring the Deployment
 
@@ -98,6 +54,111 @@ The deployment uses AWS CodeDeploy's LINEAR_10PERCENT_EVERY_1MINUTE configuratio
 
 - Automatic rollback occurs if error thresholds are exceeded
 - Manual rollback can be initiated in the CodeDeploy console
+
+
+## Deployment Stand-Alone CDK
+
+You can use the stand-alone CDK process to test and iterate on the solution outside of a CI/CD provider.
+
+1. Clone the repository
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/apigw-lamba-deployment.git
+   cd apigw-lambda-deployment
+   ```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Bootstrap your AWS environment for CDK (if not already done):
+```bash
+npx cdk bootstrap
+```
+
+4. Review the Lambda function code in `lambda/index.js`
+
+5. Run unit tests
+```bash
+npm run test:unit
+ ```
+
+6. Deploy the initial version
+```bash
+cdk deploy LambdaCanaryStack-Dev
+```
+
+7. Run integration tests
+```bash
+npm run test:integration
+```
+
+8. Deploy the new version:
+```bash
+cdk deploy LambdaCanaryStack-Prod
+ ```
+
+ 
+## Deployment for GitHub Actions
+
+This solution uses a Github Actions workflow.  Forking this repository into your own private repository will allow you to have control over your own GitHub Actions workflow and secrets.
+
+The .github/workflows/lambda-deploy.yml contains the following jobs:
+1. **build and unit test**
+    - Install dependencies
+    - Runs unit tests
+2. **deploy dev**
+    - Deploys dev stack to AWS using CDK
+    - Runs integration tests
+3. **deploy prod**
+    - Deploys prod stack to AWS using CDK
+
+### Deployment Steps
+
+1. [Fork the repository](https://github.com/boomtown15/apigw-lambda-deployment/fork)
+
+2. Clone your forked repository
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/apigw-lambda-deployment.git
+   cd apigw-lambda-deployment
+   ```
+
+3. Configure AWS Credentials in GitHub
+   - Go to your GitHub repository settings
+   - Navigate to "Secrets and variables" > "Actions"
+   - Add the following secrets:
+      - `AWS_ACCESS_KEY_ID`: Your AWS access key
+      - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
+   - Add the following variable: 
+     - `AWS_DEFAULT_REGION`: Your preferred AWS region (e.g., us-east-1)
+
+4. Modify the Lambda function under lambda directory (i.e. alert return message), commit changes and push to the repository.  [Manually start a pipeline execution](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow) in the GitHub actions monitor for progress.  To trigger pipeline executions on events, see [GitHub Action Docs](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow)
+
+## Deployment for GitLab
+
+The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
+
+1. **build-unit-test**
+    - Install dependencies
+    - Runs unit tests
+
+2. **deploy-dev-integration-test**
+    - Deploys dev stack to AWS using CDK
+    - Runs integration tests
+
+3. **deploy-prod**
+    - Deploys prod stack to AWS using CDK
+
+### Deployment Steps
+
+1. Create a GitLab repo and include code from this sample
+2. Setup secrets and variables:
+    - Navigate to Settings --> CI/CD, then Variables.  Create the following variables.  The AWS access key id and secret access key are sensitive and should be protected and masked.  Consult your security team for further guidance.  
+      - AWS_ACCESS_KEY_ID: see pre-requisities section for setup
+      - AWS_SECRET_ACCESS_KEY: see pre-requisities section for setup
+      - AWS_DEFAULT_REGION: ex: us-east-1, us-west2, etc. 
+3. [Setup a pipeline](https://docs.gitlab.com/ci/quick_start/) using the .gitlab-ci.yml file
+4. Modify the Lambda function under lambda directory (i.e. alert return message), commit changes and push to the repository.  Start the pipeline manually or setup your own [trigger](https://docs.gitlab.com/ci/quick_start/).  
 
 ## Best Practices
 
@@ -115,27 +176,15 @@ Common issues and solutions:
    
 2. Traffic shifting issues
    - Review CloudWatch logs
-   - Check Lambda function error rates
-   - Verify CodeDeploy service role permissions
+   - Verify permissions
 
-## Contributing
+## Additional Information 
 
-1. Create a new branch for your changes
-2. Make your changes and test locally
-3. Submit a pull request with a clear description of changes
-
-For more information, refer to:
 - [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
 - [AWS Lambda Aliases](https://docs.aws.amazon.com/lambda/latest/dg/configuration-aliases.html)
 - [AWS CodeDeploy Documentation](https://docs.aws.amazon.com/codedeploy/)
 
 
-## Project Structure
 
-- `bin/` - Contains the CDK app entry point
-- `lib/` - Contains the CDK stack definition
-- `lambda/` - Contains the Lambda function code
-- `test/` - Contains test files
-```
 
 

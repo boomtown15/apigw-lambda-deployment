@@ -1,10 +1,7 @@
 name: Lambda Deployment
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'lambda/**'
+  workflow_dispatch:
 
 jobs:
   build-and-unit-test:
@@ -62,7 +59,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-west-2
+          AWS_DEFAULT_REGION: ${{secrets.AWS_REGION}}
 
       # run integration tests
       - name: Integration tests
@@ -71,7 +68,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: us-west-2
+          AWS_DEFAULT_REGION: ${{secrets.AWS_REGION}}
 
   deploy-prod:
     name: Deploy to Prod
@@ -102,4 +99,4 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: us-west-2
+        AWS_DEFAULT_REGION: ${{vars.AWS_DEFAULT_REGION}}

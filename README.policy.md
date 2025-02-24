@@ -1,6 +1,6 @@
 # GitHub AWS Service Account Policy
 
-This policy document (`github-aws-policy.json`) provides the necessary AWS IAM permissions for the GitHub Actions workflows to deploy and manage AWS resources. The policy follows the principle of least privilege and scopes resources to the "LambdaCanary" prefix.
+This [policy document](cd-aws-policy.json) provides the necessary AWS IAM permissions for the GitHub Actions workflows to deploy and manage AWS resources. The policy follows the principle of least privilege and scopes resources to the "LambdaCanary" prefix.
 
 ## Included Permissions
 
@@ -12,30 +12,62 @@ The policy grants specific permissions for:
 - API Gateway configuration
 - CloudWatch metrics and logs
 
-## Resource Scoping
-
-All resources are scoped to prevent unintended access:
-- CloudFormation stacks: `LambdaCanary*`
-- S3 buckets: `lambdacanary*`
-- IAM roles: `LambdaCanary*`
-- Lambda functions: `LambdaCanary*`
-- CloudWatch log groups: `LambdaCanary*`
-
 ## Usage
 
-Apply this policy to the IAM role or user that GitHub Actions uses for AWS authentication.
+### Steps to Setup IAM user with appropriate permissions 
 
-### Steps
+If you already have a user or role for your CI/CD pipeline, you will want to review them to ensure they include the necessary permissions.  To create a new user with appropriate permissions, you can follow these steps: 
 
-Create the policy
+## Setup Instructions
 
+### 1. Create IAM User
 
-Create the user
+You can replace the user name and policy name with relevant names for your environment.    
 
+Create IAM user: 
+```
+aws iam create-user --user-name cicd-user
+```
 
-Apply the policy to the user
+Create access keys for the user and save the output: 
+```
+aws iam create-access-key --user-name cicd-user
+```
 
- 
-Generate secrets
+### 2. Create IAM Policy
 
+Create the policy using the JSON file:
+```bash
+aws iam create-policy \
+    --policy-name cicd-policy \
+    --policy-document file://cd-aws-policy.json
+```
+Note the ARN created for the policy for the next step.  
+
+### 3. Attach Policy to User
+
+Replace the ARN with the policy ARN value from output on the previous command.  
+```bash
+aws iam attach-user-policy \
+    --user-name cicd-user \
+    --policy-arn arn:aws:iam::ACCOUNT_ID:policy/cicd-policy
+```
+
+### 4. Setup CI/CD Secrets
+
+#### GitHub Actions
+1. Go to your GitHub repository
+2. Navigate to Settings > Secrets and variables > Actions
+3. Add the following secrets:
+    - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
+    - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
+    - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
+
+#### GitLab CI/CD
+1. Go to your GitLab project
+2. Navigate to Settings > CI/CD > Variables
+3. Add the following variables (mark them as Protected and Masked):
+    - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
+    - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
+    - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
 
