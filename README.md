@@ -3,7 +3,7 @@
 > [!IMPORTANT]  
 > This solution is intended for sandbox/development and non-production environments
 
-This repository demonstrates how to implement canary deployments for AWS Lambda functions using AWS CDK. The deployment strategy uses Lambda function aliases and AWS CodeDeploy to gradually shift traffic from the current version to the new version.
+This repository demonstrates how to implement canary deployments for AWS Lambda functions using AWS CDK. There are two separate CDK stacks: one for development and one for production.  The Lambda function is also fronted by an API Gateway instance with two stages for dev and prod.  The deployment strategy uses Lambda function aliases and AWS CodeDeploy to gradually shift traffic from the current version to the new version.
 
 This solution is not a guide or tutorial for GitHub Actions or GitLab.  It is assumed if using those methods, you have fundamental knowledge, access and permissions to those platforms.
 
@@ -29,13 +29,13 @@ See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/config
 
 > [!NOTE]  
 > There are 3 deployment options available: 
-> [Stand-alone CDK](#deployment-stand-alone-cdk) for testing the deployment procedures manually   
-> [Github Actions Workflow](#deployment-for-github-actions) for testing via a GitHub actions pipeline
-> [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline 
+> 1. [Stand-alone CDK](#deployment-stand-alone-cdk) for testing the deployment procedures manually   
+> 2. [Github Actions Workflow](#deployment-for-github-actions) for testing via a GitHub actions pipeline
+> 3. [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline 
 
 ## Understanding the Deployment Strategy
 
-The deployment uses AWS CodeDeploy's Canary deployment configuration, which:
+The deployment uses AWS CodeDeploy's Canary deployment configuration:
 - Starts by routing 25% of traffic to the new version for Dev alias, waiting 1 minute to shift additional traffic
 - Starts by routing 10% of traffic to the new version for Prod alias, waiting 3 minutes to shift additional traffic
 - Both deployments have CloudWatch alerts to rollback the deployment if any errors are encountered with the new version during the wait period
