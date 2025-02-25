@@ -49,6 +49,16 @@
                 "arn:aws:apigateway:*::/apis/*",
                 "arn:aws:logs:*:*:log-group:/aws/lambda/LambdaCanary*:*"
             ]
+        },
+        {
+            "Sid": "CICDGetParameters",
+            "Effect": "Allow",
+            "Action": [
+                "ssm:GetParametersByPath",
+                "ssm:GetParameters",
+                "ssm:GetParameter"
+            ],
+            "Resource": "*"
         }
     ]
 }
