@@ -59,15 +59,60 @@ aws iam attach-user-policy \
 1. Go to your GitHub repository
 2. Navigate to Settings > Secrets and variables > Actions
 3. Add the following secrets:
-    - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
-    - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
-    - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
+   - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
+   - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
+4. Add the following variable: 
+   - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
 
 #### GitLab CI CD
 1. Go to your GitLab project
 2. Navigate to Settings > CI/CD > Variables
-3. Add the following variables (mark them as Protected and Masked):
-    - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
-    - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
-    - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
+3. Add the following variables (access key and key id mark as Protected and Masked)
+   - `AWS_ACCESS_KEY_ID`: Your IAM user's access key ID
+   - `AWS_SECRET_ACCESS_KEY`: Your IAM user's secret access key
+   - `AWS_REGION`: Your desired AWS region (e.g., us-east-1)
+
+## Cleanup
+
+When you no longer need the CI/CD user and policy, follow these steps to clean up the AWS resources.  You will need the ARN for the policy created earlier in this README.  If you need to obtain this again, you can find it through the IAM console, searching for the cicd policy. 
+
+### 1. Remove Policy from User
+
+```bash
+aws iam detach-user-policy \
+    --user-name cicd-user \
+    --policy-arn arn:aws:iam::ACCOUNT_ID:policy/cicd-policy
+```
+
+### 2. Delete Access Keys
+
+First, list the access keys:
+```bash
+aws iam list-access-keys --user-name cicd-user
+```
+
+Then delete each access key:
+```bash
+aws iam delete-access-key \
+    --user-name cicd-user \
+    --access-key-id ACCESS_KEY_ID
+```
+
+### 3. Delete IAM User
+
+```bash
+aws iam delete-user --user-name cicd-user
+```
+
+### 4. Delete IAM Policy
+
+```bash
+aws iam delete-policy --policy-arn arn:aws:iam::ACCOUNT_ID:policy/cicd-policy
+```
+
+Note: Replace `ACCOUNT_ID` with your AWS account ID in the above commands.
+
+### 5. Remove any secrets and variables created in your CI CD system
+
+
 

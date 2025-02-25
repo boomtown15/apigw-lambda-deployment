@@ -2,7 +2,7 @@ function getBody() {
   return {
     statusCode: 200,
     body: JSON.stringify({
-      message: 'Version 1'
+      message: 'Version 2'
     })
   };
 }

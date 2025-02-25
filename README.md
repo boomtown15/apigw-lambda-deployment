@@ -5,8 +5,6 @@
 
 This repository demonstrates how to implement canary deployments for AWS Lambda functions using AWS CDK. There are two separate CDK stacks: one for development and one for production.  The Lambda function is also fronted by an API Gateway instance with two stages for dev and prod.  The deployment strategy uses Lambda function aliases and AWS CodeDeploy to gradually shift traffic from the current version to the new version.
 
-![](assets/CanaryDeploymentFlow.png)
-
 This solution is not a guide or tutorial for GitHub Actions or GitLab.  It is assumed if using those methods, you have fundamental knowledge, access and permissions to those platforms.
 
 See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/configuring-alias-routing.html) for more details on weighted alias and traffic shifting. 
@@ -28,12 +26,13 @@ See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/config
 - [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html) installed
 - For Github or GitLab based solutions, you'll need accounts for the selected platform
 - An AWS user or role for the CI/CD pipeline with appropriate permissions.  See [policy README](README.policy.md) for details.   
+- If necessary, update region in src/test/integration.test.js.  Default is us-west-2
 
 > [!NOTE]  
 > There are 3 deployment options available: 
 > 1. [Stand-alone CDK](#deployment-stand-alone-cdk) for testing the deployment procedures manually   
 > 2. [Github Actions Workflow](#deployment-for-github-actions) for testing via a GitHub actions pipeline
-> 3. [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline 
+> 3. [GitLab Pipeline](#deployment-for-gitlab) for testing via a GitLab pipeline
 
 ## Understanding the Deployment Strategy
 
@@ -41,6 +40,8 @@ The deployment uses AWS CodeDeploy's Canary deployment configuration:
 - Starts by routing 25% of traffic to the new version for Dev alias, waiting 1 minute to shift additional traffic
 - Starts by routing 10% of traffic to the new version for Prod alias, waiting 3 minutes to shift additional traffic
 - Both deployments have CloudWatch alerts to rollback the deployment if any errors are encountered with the new version during the wait period
+
+![Diagram depicting pipeline flow from dev to prod](assets/CanaryDeploymentFlow.png)
 
 > [!NOTE]
 View [Lambda deployments configurations](https://docs.aws.amazon.com/codedeploy/latest/userguide/deployment-configurations.html#deployment-configuration-lambda) for additional deployment options (Canary, Linear, All-At-Once). 
@@ -59,10 +60,9 @@ View [Lambda deployments configurations](https://docs.aws.amazon.com/codedeploy/
 - Automatic rollback occurs if error thresholds are exceeded
 - Manual rollback can be initiated in the CodeDeploy console
 
+## Deployment 
 
-## Deployment Stand-Alone CDK
-
-You can use the stand-alone CDK process to test and iterate on the solution outside of a CI/CD provider.
+This is required to set the initial dev and prod stacks in AWS and is a pre-requisite to GitHub and GitLab deployments.  
 
 1. Clone the repository
    ```bash
@@ -87,23 +87,46 @@ npx cdk bootstrap
 npm run test:unit
  ```
 
-6. Deploy the initial version
+6. Deploy the initial dev and prod stacks
+```bash
+cdk deploy --all 
+```
+
+> [!NOTE]
+> Save the API URL in the output.  You can use this later to see the effect of traffic shifting by calling the dev or prod stages of the API, which map to the dev and prod alias, respectively. 
+
+From here you can branch off to stand-alone, [GitHub](#deployment-for-github-actions) or [GitLab](#deployment-for-gitlab) deployment scenarios.  
+
+### Deployment Stand-Alone CDK
+
+7. Make a change to the Lambda function and save.  For instance, change the message being returned. 
+
+8. Deploy the dev stack to initiate canary deployment for the Lambda function dev alias
 ```bash
 cdk deploy LambdaCanaryStack-Dev
 ```
+9. Test the deployment.  The dev stage API endpoint maps to the dev alias, which has canary traffic shifting enabled.  Roughly 25% will go to the new version of the function and 75% to the previous version.  After 1 minute, 100% will go to the new version.
+```bash
+curl <api-endpoint>/dev
+```
 
-7. Run integration tests
+10. You can view the alias traffic flow distribution and monitor the deployment in CodeDeploy.  
+
+12. Run integration tests.  Double check the AWS region is correct in the src/tests/integration/integration.test.js file. 
 ```bash
 npm run test:integration
 ```
 
-8. Deploy the new version:
+13. Deploy the changes to the Prod stack:
 ```bash
 cdk deploy LambdaCanaryStack-Prod
  ```
 
+14. You can similarly view the Lambda alias distribution and CodeDeploy deployment for the prod alias.
  
-## Deployment for GitHub Actions
+You can continue to iterate on this solution by changing the lambda function, then re-deploying either stack.  When done, proceed to [cleanup](#cleanup)
+
+### Deployment for GitHub Actions
 
 This solution uses a Github Actions workflow.  Forking this repository into your own private repository will allow you to have control over your own GitHub Actions workflow and secrets.
 
@@ -117,7 +140,7 @@ The .github/workflows/lambda-deploy.yml contains the following jobs:
 3. **deploy prod**
     - Deploys prod stack to AWS using CDK
 
-### Deployment Steps
+#### Deployment Steps
 
 1. [Fork the repository](https://github.com/boomtown15/apigw-lambda-deployment/fork)
 
@@ -138,7 +161,7 @@ The .github/workflows/lambda-deploy.yml contains the following jobs:
 
 4. Modify the Lambda function under lambda directory (i.e. alert return message), commit changes and push to the repository.  [Manually start a pipeline execution](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow) in the GitHub actions monitor for progress.  To trigger pipeline executions on events, see [GitHub Action Docs](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/triggering-a-workflow)
 
-## Deployment for GitLab
+### Deployment for GitLab
 
 The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
 
@@ -153,7 +176,7 @@ The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
 3. **deploy-prod**
     - Deploys prod stack to AWS using CDK
 
-### Deployment Steps
+#### Deployment Steps
 
 1. Create a GitLab repo and include code from this sample
 2. Setup secrets and variables:
@@ -164,13 +187,14 @@ The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
 3. [Setup a pipeline](https://docs.gitlab.com/ci/quick_start/) using the .gitlab-ci.yml file
 4. Modify the Lambda function under lambda directory (i.e. alert return message), commit changes and push to the repository.  Start the pipeline manually or setup your own [trigger](https://docs.gitlab.com/ci/quick_start/).  
 
-## Cleanup (All Methods)
+## Cleanup
 
 1. Delete any pipeline configuration created, including secrets and variables
 2. Delete the AWS dev and prod stacks.  From
 ```
-cdk destroy
+cdk destroy --all
 ```
+3. If created earlier, to remove the cicd user and policy, follow cleanup steps in [policy README](README.policy.md#cleanup).  
 
 ## Best Practices
 

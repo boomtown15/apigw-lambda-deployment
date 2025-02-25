@@ -156,12 +156,11 @@ export class LambdaCanaryStack extends cdk.Stack {
       stringValue: api.root.resourceId,
     });
 
-    // store the api url in SSM
-    new ssm.StringParameter(this, 'ApiGatewayUrl', {
+   // store the api url for the dev stage in SSM parameter store
+    new ssm.StringParameter(this, 'ApiGatewayInvokeUrl', {
       parameterName: '/canary/dev/api-gateway-url',
-      stringValue: api.url,
+      stringValue: `https://${api.restApiId}.execute-api.${Stack.of(this).region}.amazonaws.com/dev`,
     });
-
 
 
     // export API Gateway endpoint URL
