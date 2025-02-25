@@ -48,10 +48,10 @@ jobs:
       - name: Install CDK
         run: |
           npm install -g aws-cdk
-
       - name: CDK deploy if unit tests pass
         run: |
           if [ $? -eq 0 ]; then
+            npx cdk bootstrap
             cdk deploy LambdaCanaryStack-Dev --require-approval never
           else
             echo "Unit tests failed. Skipping CDK deployment."

@@ -4,59 +4,83 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cloudformation:CreateStack",
-                "cloudformation:DeleteStack",
-                "cloudformation:DescribeStacks",
-                "cloudformation:UpdateStack",
-                "cloudformation:ListStacks",
-                "cloudformation:ValidateTemplate",
-                "cloudformation:GetTemplateSummary",
-                "s3:CreateBucket",
-                "s3:DeleteBucket",
-                "s3:ListBucket",
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
+                "lambda:CreateFunction",
+                "lambda:DeleteFunction",
+                "lambda:GetFunction",
+                "lambda:GetFunctionConfiguration",
+                "lambda:InvokeFunction",
+                "lambda:AddPermission",
+                "lambda:RemovePermission",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:PublishVersion",
+                "lambda:CreateAlias",
+                "lambda:DeleteAlias",
+                "lambda:UpdateAlias"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ssm:PutParameter",
+                "ssm:GetParameter",
+                "ssm:DeleteParameter"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:PutMetricData",
+                "cloudwatch:PutMetricAlarm",
+                "cloudwatch:DeleteAlarms",
+                "cloudwatch:DescribeAlarms"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "apigateway:GET",
+                "apigateway:POST",
+                "apigateway:PUT",
+                "apigateway:DELETE",
+                "apigateway:PATCH"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DeleteLogGroup"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "iam:CreateRole",
                 "iam:DeleteRole",
                 "iam:GetRole",
                 "iam:PutRolePolicy",
                 "iam:DeleteRolePolicy",
-                "iam:PassRole",
-                "lambda:CreateFunction",
-                "lambda:DeleteFunction",
-                "lambda:GetFunction",
-                "lambda:InvokeFunction",
-                "lambda:UpdateFunctionCode",
-                "lambda:UpdateFunctionConfiguration",
-                "apigateway:GET",
-                "apigateway:POST",
-                "apigateway:PUT",
-                "apigateway:DELETE",
-                "cloudwatch:PutMetricData",
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-                "logs:DescribeLogGroups",
-                "logs:DescribeLogStreams"
+                "iam:PassRole"
             ],
-            "Resource": [
-                "arn:aws:cloudformation:*:*:stack/LambdaCanary*/*",
-                "arn:aws:s3:::lambdacanary*",
-                "arn:aws:s3:::lambdacanary*/*",
-                "arn:aws:iam::*:role/LambdaCanary*",
-                "arn:aws:lambda:*:*:function:LambdaCanary*",
-                "arn:aws:apigateway:*::/apis/*",
-                "arn:aws:logs:*:*:log-group:/aws/lambda/LambdaCanary*:*"
-            ]
+            "Resource": "*"
         },
         {
-            "Sid": "CICDGetParameters",
             "Effect": "Allow",
             "Action": [
-                "ssm:GetParametersByPath",
-                "ssm:GetParameters",
-                "ssm:GetParameter"
+                "codedeploy:CreateApplication",
+                "codedeploy:DeleteApplication",
+                "codedeploy:CreateDeploymentGroup",
+                "codedeploy:DeleteDeploymentGroup",
+                "codedeploy:CreateDeployment",
+                "codedeploy:GetDeployment"
             ],
             "Resource": "*"
         }
