@@ -5,6 +5,8 @@
 
 This repository demonstrates how to implement canary deployments for AWS Lambda functions using AWS CDK. There are two separate CDK stacks: one for development and one for production.  The Lambda function is also fronted by an API Gateway instance with two stages for dev and prod.  The deployment strategy uses Lambda function aliases and AWS CodeDeploy to gradually shift traffic from the current version to the new version.
 
+![](assets/CanaryDeploymentFlow.png)
+
 This solution is not a guide or tutorial for GitHub Actions or GitLab.  It is assumed if using those methods, you have fundamental knowledge, access and permissions to those platforms.
 
 See [Lambda Developer Guide](https://docs.aws.amazon.com/lambda/latest/dg/configuring-alias-routing.html) for more details on weighted alias and traffic shifting. 
