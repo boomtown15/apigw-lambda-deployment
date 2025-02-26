@@ -5,64 +5,28 @@
       "Effect": "Allow",
       "Action": [
         "lambda:*",
-        "s3:ListBucket",
-        "s3:GetObject",
-        "s3:PutObject",
-        "cloudformation:*"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "s3:*",
+        "cloudformation:*",
         "ssm:PutParameter",
         "ssm:GetParameter",
-        "ssm:DeleteParameter"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "ssm:DeleteParameter",
         "cloudwatch:PutMetricData",
         "cloudwatch:PutMetricAlarm",
         "cloudwatch:DeleteAlarms",
-        "cloudwatch:DescribeAlarms"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "cloudwatch:DescribeAlarms",
         "apigateway:GET",
         "apigateway:POST",
         "apigateway:PUT",
         "apigateway:DELETE",
-        "apigateway:PATCH"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "apigateway:PATCH",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
-        "logs:DeleteLogGroup"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iam:GetRole",
-        "iam:PassRole"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
+        "logs:DeleteLogGroup",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DeleteLogGroup",
         "codedeploy:CreateApplication",
         "codedeploy:DeleteApplication",
         "codedeploy:CreateDeploymentGroup",

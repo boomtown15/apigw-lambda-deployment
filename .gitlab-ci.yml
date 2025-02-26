@@ -2,12 +2,10 @@
 
 # Define stages
 stages:
-  - build-unit-test
   - deploy-dev-integration-test
   - deploy-prod
 
 variables:
-  AWS_DEFAULT_REGION: us-west-2  # Update this as needed
   NODE_OPTIONS: "--max-old-space-size=4096"
 
 # Default image for all jobs
@@ -25,18 +23,11 @@ before_script:
   - npm install -g aws-cdk typescript ts-node
   - npm ci --audit=false --no-engine-strict  # Skip audit and engine check for setup
 
-# Build and unit test stage
-build-unit-test:
-  stage: build-unit-test
-  script:
-    # Build CDK app
-    - npx cdk synth
-    - npm run test:unit
-
 # Deploy Dev
 deploy-dev-integration-test:
   stage: deploy-dev-integration-test
   script:
+    - npm run test:unit
     # Ensure AWS credentials are available
     - if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
     -   echo "AWS credentials not found"
@@ -48,8 +39,6 @@ deploy-dev-integration-test:
       }
     - npm run test:integration
   environment: development
-  needs:
-    - build-unit-test
 
 # Deploy to production
 deploy-prod:
