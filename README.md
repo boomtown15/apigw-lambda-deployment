@@ -165,15 +165,13 @@ The .github/workflows/lambda-deploy.yml contains the following jobs:
 
 The GitLab CI/CD pipeline in `.gitlab-ci.yml` includes:
 
-1. **build-unit-test**
-    - Install dependencies
-    - Runs unit tests
+1. **deploy-dev-integration-test**
+   - Install dependencies
+   - Runs unit tests
+   - Deploys dev stack to AWS using CDK
+   - Runs integration tests
 
-2. **deploy-dev-integration-test**
-    - Deploys dev stack to AWS using CDK
-    - Runs integration tests
-
-3. **deploy-prod**
+2. **deploy-prod**
     - Deploys prod stack to AWS using CDK
 
 #### Deployment Steps
