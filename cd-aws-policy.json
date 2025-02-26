@@ -32,7 +32,9 @@
         "codedeploy:CreateDeploymentGroup",
         "codedeploy:DeleteDeploymentGroup",
         "codedeploy:CreateDeployment",
-        "codedeploy:GetDeployment"
+        "codedeploy:GetDeployment",
+        "iam:PassRole",
+        "iam:GetRole"
       ],
       "Resource": "*"
     }
