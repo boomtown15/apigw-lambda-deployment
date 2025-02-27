@@ -11,15 +11,16 @@
     "@aws-sdk/client-cloudwatch": "^3.0.0",
     "@aws-sdk/client-lambda": "^3.0.0",
     "@aws-sdk/client-ssm": "^3.744.0",
-    "axios": "^1.x.x",
     "adm-zip": "^0.5.9",
     "aws-cdk-lib": "^2.178.1",
+    "axios": "^1.x.x",
+    "cdk-nag": "^2.35.31",
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
-    "express": "~4.16.1",
+    "express": "^4.21.2",
     "http-errors": "~1.6.3",
     "morgan": "~1.9.1",
-    "pug": "2.0.0-beta11"
+    "pug": "3.0.3"
   },
   "engines": {
     "node": ">=22.0.0"
